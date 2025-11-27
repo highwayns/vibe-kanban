@@ -12,9 +12,12 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     ca-certificates \
     wget \
+    make \
     git \
+    libclang-dev \
+    clang \
+    libsqlite3-dev \
     && rm -rf /var/lib/apt/lists/*
-
 # Install cargo-watch for hot reload
 RUN cargo install cargo-watch
 
