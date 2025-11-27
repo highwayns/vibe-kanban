@@ -1,0 +1,51 @@
+# Vibe Kanban - Production Docker Compose
+# This setup uses the optimized production Dockerfile with embedded frontend
+
+services:
+  vibe-kanban:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vibe-kanban-prod
+    environment:
+      # Server configuration
+      - HOST=0.0.0.0
+      - PORT=${PORT:-3000}
+      # Optional: PostHog analytics
+      - POSTHOG_API_KEY=${POSTHOG_API_KEY:-}
+      # Database
+      - DATABASE_URL=sqlite:/repos/db.sqlite
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      # Persistent storage for repositories and database
+      - repos_data:/repos
+      # Optional: Mount custom database
+      # - ./data/db.sqlite:/repos/db.sqlite
+    networks:
+      - vibe-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    # Resource limits (adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+volumes:
+  repos_data:
+    name: vibe-kanban-prod-repos
+
+networks:
+  vibe-network:
+    name: vibe-kanban-prod-network
+    driver: bridge

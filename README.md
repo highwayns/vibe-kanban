@@ -42,6 +42,25 @@ Make sure you have authenticated with your favourite coding agent. A full list o
 npx vibe-kanban
 ```
 
+### Docker Installation
+
+Vibe Kanban can also be run using Docker and Docker Compose. This is useful for:
+- Consistent development environments across teams
+- Easy deployment to remote servers
+- Running without installing Rust/Node.js locally
+
+**Quick start with Docker:**
+
+```bash
+# Development mode (with hot-reload)
+docker-compose up
+
+# Production mode
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+For detailed Docker setup instructions, configuration options, and troubleshooting, see [DOCKER.md](DOCKER.md).
+
 ## Documentation
 
 Please head to the [website](https://vibekanban.com/docs) for the latest documentation and user guides.

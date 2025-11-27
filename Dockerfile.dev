@@ -1,0 +1,93 @@
+# Development Dockerfile for Vibe Kanban
+# Multi-stage build with separate targets for frontend and backend development
+
+# =============================================================================
+# Backend Development Target
+# =============================================================================
+FROM rust:1.89-slim-bookworm AS backend-dev
+
+# Install development dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    ca-certificates \
+    wget \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install cargo-watch for hot reload
+RUN cargo install cargo-watch
+
+# Create app directory
+WORKDIR /app
+
+# Copy only dependency files first for caching
+COPY Cargo.toml Cargo.lock ./
+COPY crates/server/Cargo.toml crates/server/
+COPY crates/db/Cargo.toml crates/db/
+COPY crates/executors/Cargo.toml crates/executors/
+COPY crates/services/Cargo.toml crates/services/
+COPY crates/utils/Cargo.toml crates/utils/
+COPY crates/local-deployment/Cargo.toml crates/local-deployment/
+COPY crates/deployment/Cargo.toml crates/deployment/
+COPY crates/remote/Cargo.toml crates/remote/
+
+# Create dummy source files to build dependencies
+RUN mkdir -p crates/server/src && echo "fn main() {}" > crates/server/src/main.rs && \
+    mkdir -p crates/db/src && echo "" > crates/db/src/lib.rs && \
+    mkdir -p crates/executors/src && echo "" > crates/executors/src/lib.rs && \
+    mkdir -p crates/services/src && echo "" > crates/services/src/lib.rs && \
+    mkdir -p crates/utils/src && echo "" > crates/utils/src/lib.rs && \
+    mkdir -p crates/local-deployment/src && echo "" > crates/local-deployment/src/lib.rs && \
+    mkdir -p crates/deployment/src && echo "" > crates/deployment/src/lib.rs && \
+    mkdir -p crates/remote/src && echo "fn main() {}" > crates/remote/src/main.rs
+
+# Build dependencies only (will be cached)
+RUN cargo build
+
+# Copy development assets seed
+COPY dev_assets_seed /app/dev_assets_seed
+
+# Create dev_assets directory and initialize database
+RUN mkdir -p /app/dev_assets && \
+    if [ -f /app/dev_assets_seed/db.sqlite ]; then \
+        cp /app/dev_assets_seed/db.sqlite /app/dev_assets/db.sqlite; \
+    fi
+
+# Expose backend port
+EXPOSE 8080
+
+# Default command (can be overridden in docker-compose)
+CMD ["cargo", "watch", "-w", "crates", "-x", "run --bin server"]
+
+# =============================================================================
+# Frontend Development Target
+# =============================================================================
+FROM node:20-bookworm AS frontend-dev
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Create app directory
+WORKDIR /app
+
+# Copy root package files
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+
+# Copy frontend package files
+COPY frontend/package.json frontend/
+
+# Install dependencies
+RUN pnpm install --filter ./frontend
+
+# Copy shared types (needed for frontend)
+COPY shared /app/shared
+
+# Expose frontend port
+EXPOSE 3000
+
+# Set working directory to frontend
+WORKDIR /app/frontend
+
+# Default command (can be overridden in docker-compose)
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
